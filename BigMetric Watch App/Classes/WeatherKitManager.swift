@@ -84,6 +84,45 @@ class WeatherKitManager: NSObject {
 		self.date = date
 	}
 
+	// Mark the function as async and potentially throwing to handle errors properly.
+	func getWeather(for coordinate: CLLocationCoordinate2D) async throws {
+		let weather = try await fetchWeather(for: coordinate)
+		let current = weather.currentWeather
+		let hourly = weather.hourlyForecast.first
+
+		// Ensures daily and hourly forecasts are available; throws errors if not.
+		guard let dailyForecast = await dailyForecast(for: coordinate), !dailyForecast.isEmpty else {
+			throw CustomError.dailyForecastUnavailable
+		}
+
+		guard let firstHourlyForecast = hourly else {
+			throw CustomError.hourlyForecastUnavailable
+		}
+
+		// Update properties based on the fetched weather data.
+		precipForecast2 = firstHourlyForecast.precipitationChance
+		precipForecast = firstHourlyForecast.precipitationAmount.value
+		symbolHourly = firstHourlyForecast.symbolName
+		tempHour = String(format: "%.0f", firstHourlyForecast.temperature.converted(to: .fahrenheit).value)
+		tempVar = String(format: "%.0f", current.temperature.converted(to: .fahrenheit).value)
+		highTempVar = String(format: "%.0f", dailyForecast.first?.highTemperature.converted(to: .fahrenheit).value ?? 0)
+		lowTempVar = String(format: "%.0f", dailyForecast.first?.lowTemperature.converted(to: .fahrenheit).value ?? 0)
+		windSpeedVar = current.wind.speed.converted(to: .milesPerHour).value
+		windDirectionVar = CardinalDirection(course: current.wind.direction.converted(to: .degrees).value).rawValue
+		symbolVar = current.symbolName
+		locationName = distanceTracker.locationName
+
+		// Process and store a 10-day weather forecast.
+		let howManyDays = min(dailyForecast.count, 10)
+		weekForecast = (0..<howManyDays).map { index in
+			let dailyWeather = dailyForecast[index]
+			let symbolName = dailyWeather.symbolName
+			let minTemp = String(format: "%.0f", dailyWeather.lowTemperature.converted(to: .fahrenheit).value)
+			let maxTemp = String(format: "%.0f", dailyWeather.highTemperature.converted(to: .fahrenheit).value)
+			return Forecasts(symbolName: symbolName, minTemp: minTemp, maxTemp: maxTemp)
+		}
+	}
+
 
 	/// ``getWeather(for:)``
 	/// Initiates an asynchronous task to fetch current and forecasted weather data for a given coordinate.
@@ -93,7 +132,7 @@ class WeatherKitManager: NSObject {
 	///
 	/// Should any step of the data fetching process fail, this method handles errors appropriately,
 	/// distinguishing between network-related errors (like no internet connection) and other types of errors by logging them or updating UI indicators.
-	func getWeather(for coordinate: CLLocationCoordinate2D) {
+	func getWeatherNonAsync(for coordinate: CLLocationCoordinate2D) {
 		Task {
 			do {
 				let weather = try await fetchWeather(for: coordinate)

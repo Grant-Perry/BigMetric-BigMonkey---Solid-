@@ -15,8 +15,8 @@ import MapKit
 struct WorkoutListItem: View {
 	@State var workout: HKWorkout
 	var workoutUtility = WorkoutUtility()
-	let mapView: MKMapView										= MKMapView()
-	@State var healthStore 										= HKHealthStore()
+	let mapView: MKMapView = MKMapView()
+	@State var healthStore = HKHealthStore()
 	@State var locations: [CLLocation]? 					= nil
 	@State var regionLatLongHeight:CLLocationDistance	= 2000 // feet
 	@State private var CityState: String?

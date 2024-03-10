@@ -65,7 +65,7 @@ struct summary: View {
 						SummaryMetricView(
 							title: "Total Energy:",
 							value: Measurement(
-								value: workoutManager.workout?.totalEnergyBurned?.doubleValue(for: .kilocalorie()) ?? 0, 
+								value: workoutManager.workout?.totalEnergyBurned?.doubleValue(for: .kilocalorie()) ?? 0,
 								unit: UnitEnergy.kilocalories
 							).formatted(
 								.measurement(

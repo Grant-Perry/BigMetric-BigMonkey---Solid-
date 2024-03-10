@@ -70,7 +70,7 @@ struct howFarGPS: View {
 								  endColor: !isRecording ? (distanceTracker.yardsOrMiles ? bgMilesStopBottom : bgYardsStopBottom) : (distanceTracker.yardsOrMiles ? bgMilesStartBottom : bgYardsStartBottom),
 								  isUp: self.isUp,
 								  screenBounds: self.screenBounds)
-					// MARK: It all starts here - the button
+ // MARK: It all starts here - the button
 					.overlay(
 						VStack {
 							DoubleClickButton(action: {
@@ -88,14 +88,15 @@ struct howFarGPS: View {
 										// bleach the properties
 										workoutManager.resetWorkout()
 										distanceTracker.cleanVars 	= true
+										// get the initial existing step count
 										distanceTracker.queryStepCount { steps in
 											if let steps = steps {
 												distanceTracker.startStepCnt = steps
 												print("Number of steps inside wmState: \(steps)")
 											} else {
 												print("Error retrieving step count.") } }
-										distanceTracker.lastLocation 		= nil  // reset to be certain there is nothing cached
-										distanceTracker.holdCLLocations 	= []
+										distanceTracker.lastLocation = nil  // reset to be certain there is nothing cached
+										distanceTracker.holdCLLocations = []
 										workoutManager.startWorkout(workoutType: .walking) // start the HKWorkoutLive
 									} else {
 										workoutManager.togglePause()

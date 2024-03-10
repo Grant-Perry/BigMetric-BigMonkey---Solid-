@@ -27,14 +27,29 @@ struct debugScreen: View {
 						Spacer()
 						toggleBeep(distanceTracker: distanceTracker)
 						Button(action: {
-							weatherKitManager.getWeather(for: distanceTracker.currentCoords)
-							showWeatherStatsView = true
+							// Wrap the async call within a Task to execute it concurrently.
+							Task {
+								do {
+									try await weatherKitManager.getWeather(for: distanceTracker.currentCoords)
+									// After successfully fetching the weather, indicate that the weather stats view can be shown.
+									DispatchQueue.main.async {
+										showWeatherStatsView = true
+									}
+								} catch {
+									// Handle any errors that `getWeather` might throw.
+									print("Failed to get weather data: \(error)")
+									// Optionally, update UI or state to reflect the error, if necessary.
+								}
+							}
 						}) {
+							// `showAllWeather` is displayed as part of the Button's label
+							// and not intended to perform any actions when the button is pressed.
 							showAllWeather(weatherKitManager: weatherKitManager,
-												geoCodeHelper: geoCodeHelper,
-												distanceTracker: distanceTracker)
-							//                     ShowWeather()
+										   geoCodeHelper: geoCodeHelper,
+										   distanceTracker: distanceTracker)
+							// The commented-out ShowWeather() seems like another view or component intended for the same purpose.
 						}
+
 						.leftJustify()
 						Divider()
 
@@ -113,15 +128,16 @@ struct debugScreen: View {
 		 completion handler in queryStepCount so it has to finish updating before self.finalSteps is updated.
 		 */
 		.onAppear {
-			weatherKitManager.getWeather(for: distanceTracker.currentCoords)
-			//			distanceTracker.queryStepCount { steps in
-			//				if let steps = steps {
-			//					finalSteps = steps - distanceTracker.startStepCnt // how many steps THIS workout
-			//				} else {
-			//					print("Error retrieving step count for debugScreen view.")
-			//				}
-			//			}
+			Task {
+				do {
+					try await weatherKitManager.getWeather(for: distanceTracker.currentCoords)
+				} catch {
+					// Handle potential errors here
+					print("Error during onAppear: \(error.localizedDescription)")
+				}
+			}
 		}
+
 		//      .id(UUID()) // force refresh
 		.padding()
 #endif

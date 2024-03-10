@@ -83,6 +83,8 @@
 		9B4642F62B73ED2500833432 /* WorkoutUtility.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B4642F52B73ED2500833432 /* WorkoutUtility.swift */; };
 		9B4642FA2B74017300833432 /* CustomErrors.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B4642F92B74017300833432 /* CustomErrors.swift */; };
 		9B6AF5CE2A2552400066A2BD /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 9B4281C52A1FFF5A00C696A6 /* Assets.xcassets */; };
+		9B6BF27A2B9CAAB200C66D00 /* MetaData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B6BF2792B9CAAB200C66D00 /* MetaData.swift */; };
+		9B6BF27C2B9CAAED00C66D00 /* CustomError.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B6BF27B2B9CAAED00C66D00 /* CustomError.swift */; };
 		9B9CDD302B519D2F00CCBA2E /* lookAroundMap.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B9CDD2F2B519D2F00CCBA2E /* lookAroundMap.swift */; };
 		9B9CDD322B51AC5300CCBA2E /* mapNavBtns.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B9CDD312B51AC5300CCBA2E /* mapNavBtns.swift */; };
 		9B9CDD342B51CA7C00CCBA2E /* workoutLocations.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B9CDD332B51CA7C00CCBA2E /* workoutLocations.swift */; };
@@ -240,6 +242,8 @@
 		9B4642F32B73E23100833432 /* WorkoutMetricsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutMetricsView.swift; sourceTree = "<group>"; };
 		9B4642F52B73ED2500833432 /* WorkoutUtility.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutUtility.swift; sourceTree = "<group>"; };
 		9B4642F92B74017300833432 /* CustomErrors.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CustomErrors.swift; sourceTree = "<group>"; };
+		9B6BF2792B9CAAB200C66D00 /* MetaData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetaData.swift; sourceTree = "<group>"; };
+		9B6BF27B2B9CAAED00C66D00 /* CustomError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CustomError.swift; sourceTree = "<group>"; };
 		9B9CDD2F2B519D2F00CCBA2E /* lookAroundMap.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = lookAroundMap.swift; sourceTree = "<group>"; };
 		9B9CDD312B51AC5300CCBA2E /* mapNavBtns.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = mapNavBtns.swift; sourceTree = "<group>"; };
 		9B9CDD332B51CA7C00CCBA2E /* workoutLocations.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = workoutLocations.swift; sourceTree = "<group>"; };
@@ -333,8 +337,8 @@
 				9B4281C02A1FFF5900C696A6 /* BigMetric iOS APP */,
 				9B4281E82A1FFF5A00C696A6 /* BigMetric Watch App */,
 				9B4282972A2035CB00C696A6 /* BigMetric.entitlements */,
-				9B4642F02B73DC7900833432 /* Data */,
 				9BE077922A256CA4008C8C41 /* Frameworks */,
+				9B6BF2782B9CAA8B00C66D00 /* New Group */,
 				9B4281C72A1FFF5A00C696A6 /* Preview Content */,
 				9B4281BF2A1FFF5900C696A6 /* Products */,
 			);
@@ -397,6 +401,7 @@
 		9B4281E82A1FFF5A00C696A6 /* BigMetric Watch App */ = {
 			isa = PBXGroup;
 			children = (
+				9B4642F02B73DC7900833432 /* Data */,
 				9B4282982A20362E00C696A6 /* BigMetric Watch App.entitlements */,
 				9B4282932A200D9A00C696A6 /* BigMetric-Info.plist */,
 				9B4281F92A1FFF5B00C696A6 /* BigMetric Watch AppTests */,
@@ -443,6 +448,7 @@
 			children = (
 				9B4282882A2004E000C696A6 /* AltitudeManager.swift */,
 				9B42821E2A20002900C696A6 /* DistanceTracker.swift */,
+				9B4282262A2003DE00C696A6 /* GeoCodeHelper.swift */,
 				9B4282222A2002F700C696A6 /* WeatherKitManager.swift */,
 				9B4282202A20016E00C696A6 /* WorkoutManager.swift */,
 			);
@@ -464,7 +470,6 @@
 			children = (
 				9B4282532A20043900C696A6 /* Atomic.swift */,
 				9B4282542A20043900C696A6 /* GetLocation.swift */,
-				9B4282262A2003DE00C696A6 /* GeoCodeHelper.swift */,
 			);
 			path = Helpers;
 			sourceTree = "<group>";
@@ -531,6 +536,7 @@
 				9B42827A2A20049400C696A6 /* WeatherConditions.swift */,
 				9B42827C2A20049400C696A6 /* WorkoutType.swift */,
 				9B3E78B02B43231C00DEFAB4 /* GPSAccuracyColor.swift */,
+				9B6BF27B2B9CAAED00C66D00 /* CustomError.swift */,
 			);
 			path = Enums;
 			sourceTree = "<group>";
@@ -547,8 +553,16 @@
 			isa = PBXGroup;
 			children = (
 				9B4642F12B73DC8E00833432 /* CityCoords.swift */,
+				9B6BF2792B9CAAB200C66D00 /* MetaData.swift */,
 			);
 			path = Data;
+			sourceTree = "<group>";
+		};
+		9B6BF2782B9CAA8B00C66D00 /* New Group */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			path = "New Group";
 			sourceTree = "<group>";
 		};
 		9BC4F0E52A27836F00A5D42E /* Helpers */ = {
@@ -733,7 +747,7 @@
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
 				LastSwiftUpdateCheck = 1430;
-				LastUpgradeCheck = 1500;
+				LastUpgradeCheck = 1530;
 				TargetAttributes = {
 					9B4281BD2A1FFF5900C696A6 = {
 						CreatedOnToolsVersion = 14.3;
@@ -853,6 +867,7 @@
 				9B4642EF2B73DBC500833432 /* LoadingView.swift in Sources */,
 				9B4642F62B73ED2500833432 /* WorkoutUtility.swift in Sources */,
 				9BC4F0F32A27858A00A5D42E /* CLLocation.swift in Sources */,
+				9B6BF27A2B9CAAB200C66D00 /* MetaData.swift in Sources */,
 				9B9CDD302B519D2F00CCBA2E /* lookAroundMap.swift in Sources */,
 				9B4642EB2B72CFB000833432 /* WorkoutListView.swift in Sources */,
 				9BC4F0EE2A2784A100A5D42E /* WorkoutList.swift in Sources */,
@@ -903,6 +918,7 @@
 				9B4282672A20046900C696A6 /* CLLocationWatch.swift in Sources */,
 				9B42824E2A20040D00C696A6 /* showAllWeather.swift in Sources */,
 				9B42823F2A20040D00C696A6 /* WeatherStatsView.swift in Sources */,
+				9B6BF27C2B9CAAED00C66D00 /* CustomError.swift in Sources */,
 				9B4282212A20016F00C696A6 /* WorkoutManager.swift in Sources */,
 				9B42826C2A20046900C696A6 /* Date.swift in Sources */,
 				9B4282552A20043900C696A6 /* Atomic.swift in Sources */,
@@ -994,6 +1010,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
@@ -1056,6 +1073,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";

@@ -10,14 +10,16 @@
 import SwiftUI
 
 let APP_NAME 		= "BigMetric"
-let APP_VERSION 	= "3.3a RhiNO-M0nkEY-FarT"
-let MOD_DATE 		= "Modified: 3/6/24 | 5:28PM"
+let APP_VERSION 	= "3.4a RhiNO-M0nkEY-FarT"
+let MOD_DATE 		= "Modified: 3/9/24 | 5:28PM"
 
 @main
 struct BigMetric_Watch_AppApp: App {
    @Environment(\.scenePhase) var scenePhase
 	@State var distanceTracker: DistanceTracker = DistanceTracker()
-	@State var workoutManager: WorkoutManager = WorkoutManager(distanceTracker: DistanceTracker())
+	@State var workoutManager: WorkoutManager = WorkoutManager(distanceTracker: DistanceTracker(),
+															   weatherKitManager: WeatherKitManager(distanceTracker: DistanceTracker()),
+															   geoCodeHelper: GeoCodeHelper(distanceTracker: DistanceTracker()))
 	@State var weatherKitManager: WeatherKitManager = WeatherKitManager(distanceTracker: DistanceTracker())
 	@State var geoCodeHelper: GeoCodeHelper = GeoCodeHelper(distanceTracker: DistanceTracker())
    @State private var distanceTrackerInitialized = false

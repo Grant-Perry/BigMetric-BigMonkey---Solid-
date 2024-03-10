@@ -88,9 +88,17 @@ struct ShowWeather: View {
          }
       }
       .font(.footnote)
-      .onAppear {
-         weatherKitManager.getWeather(for: distanceTracker.currentCoords)
-      }
+	  .onAppear {
+		  Task {
+			  do {
+				  try await weatherKitManager.getWeather(for: distanceTracker.currentCoords)
+			  } catch {
+				  // Handle potential errors here
+				  print("Error during onAppear: \(error.localizedDescription)")
+			  }
+		  }
+	  }
+
    }
 }
 

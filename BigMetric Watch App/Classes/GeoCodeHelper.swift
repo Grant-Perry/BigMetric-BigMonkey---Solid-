@@ -29,8 +29,8 @@ class GeoCodeHelper: NSObject {
 	func getAddressFromCoordinates(_ latitude: CLLocationDegrees,
 											 _ longitude: CLLocationDegrees,
 											 completion: @escaping (String?) -> Void) {
-		let location 		= CLLocation(latitude: latitude, longitude: longitude)
-		let geocoder 		= CLGeocoder()
+		let location = CLLocation(latitude: latitude, longitude: longitude)
+		let geocoder = CLGeocoder()
 
 		geocoder.reverseGeocodeLocation(location) { (placemarks, error) in
 			if let error 	= error {
