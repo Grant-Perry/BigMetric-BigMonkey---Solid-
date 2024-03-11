@@ -14,7 +14,9 @@ struct ShowWeather: View {
 	var distanceTracker: DistanceTracker
    var weatherKitManager: WeatherKitManager
 	var geoCodeHelper: GeoCodeHelper
-   @State private var address: String = "Loading address..."
+	var workoutManager: WorkoutManager?
+
+   @State var address: String = "Loading address..."
    private var gradient: Gradient {
       Gradient(colors: [.blue, .red])
    }
@@ -49,8 +51,9 @@ struct ShowWeather: View {
                   Text(address)
                      .onAppear {
 
-                        geoCodeHelper.getCityNameHelper(distanceTracker.currentCoords.latitude, distanceTracker.currentCoords.longitude) { result in
-                           address = result
+                        geoCodeHelper.getCityNameFromCoordinates(distanceTracker.currentCoords.latitude, distanceTracker.currentCoords.longitude) { result in
+							address = result?.locality ?? "loading"
+							workoutManager?.thisAddress = address // push workoutManager.thisAddress for buildRouteMetadata checker
                         }
                      }
                   

@@ -25,10 +25,15 @@ class WorkoutManager: NSObject, CLLocationManagerDelegate {
 	var session: HKWorkoutSession? // Controls the workout session lifecycle.
 	var builder: HKLiveWorkoutBuilder? // Assembles workout data for ongoing sessions.
 	let healthStore = HKHealthStore() // Provides an interface to the HealthKit store.
+	var collectedLocationsFromDevice: [CLLocation] = [] // the collected waypoints from the workout for workoutBuilder
+	var thisMetadata: [String : Any] = [:] // temp holder for building the metadata 
+
 
 	// MARK: - Workout Metadata Properties
 	var thisAddress = "" // Holds the detailed address for workout metadata.
 	var thisCity = "" // Stores the city name for workout metadata.
+	var thisStreet = ""
+	var thisName = ""
 
 	// MARK: - State Tracking Properties
 	var workoutSessionState: HKWorkoutSessionState = .notStarted // Current state of the workout session.
@@ -45,6 +50,7 @@ class WorkoutManager: NSObject, CLLocationManagerDelegate {
 	var routeHeading: Double = 0 // Directional heading of the workout route.
 	var course: Double = 0 // Course direction during the workout.
 	var workoutAltitude: Double = 0 // Altitude reached during the workout.
+	let minimumAccuracy: CLLocationAccuracy = 50.0 		// Sets the threshold for acceptable GPS accuracy in meters to determine if a location update is reliable enough to be used.
 
 	// MARK: - Location and Route Management
 	let WMDelegate = CLLocationManager() // Handles location updates.
@@ -59,15 +65,16 @@ class WorkoutManager: NSObject, CLLocationManagerDelegate {
 			startWorkout(workoutType: selectedWorkout)
 		}
 	}
+	var gpsAccuracyCheckRetries = 0
+	let maxRetries = 3  // Maximum allowed retries
+
 
 	// Initializer and other methods would follow here...
-
-
 
 	/// ``WorkoutManager/init
 	/// Initializes a new instance of WorkoutManager with the specified parameters.
 	/// - Parameters:
-	///   - distanceTracker: Tracks distance-related metrics.
+	///   - distanceTracker: Tracks distance of workout.
 	///   - initialLocation: Starting location of the workout.
 	///   - workout: The HealthKit workout instance.
 	///   - workoutSessionState: The initial state of the workout session.
@@ -134,8 +141,7 @@ class WorkoutManager: NSObject, CLLocationManagerDelegate {
 			session?.delegate = self
 			builder?.delegate = self
 		} catch {
-			// If an error occurs during session creation, the function exits early.
-			return
+			return // If an error occurs during session creation, the function exits early.
 		}
 
 		// Configure the data source for the workout builder.
@@ -158,7 +164,7 @@ class WorkoutManager: NSObject, CLLocationManagerDelegate {
 		WMDelegate.allowsBackgroundLocationUpdates = true // Allow location updates in the background.
 		WMDelegate.startUpdatingLocation() // Start receiving location updates.
 
-		// Initialize the route builder to record the workout route.
+		// Initialize routeBuilder to record the workout route.
 		routeBuilder = HKWorkoutRouteBuilder(healthStore: healthStore, device: nil)
 	}
 
@@ -168,71 +174,60 @@ class WorkoutManager: NSObject, CLLocationManagerDelegate {
 	/// This method concludes the workout session by signaling its end to the `session` object 
 	/// and resetting the workout variables using `distanceTracker.cleanVars`.
 	func endWorkoutbuilder() async {
-		// go build the metaData for the workout
+		// go build the metaData for the routeBuilder
 		Task {
 			do {
-				// go get meta
-				let thisMetadata = await buildRouteBuilderMeta()
-
-				print("Final metadata: \(String(describing: thisMetadata))\n=======================\n")
-				//					_ = try await routeBuilder?.finishRoute(with: workout, metadata: metadata)
-				print("Route successfully added to workout with metadata.")
-				// Process the route as needed.
+//				thisMetadata = [:] // bleach thisMetadata
+				thisMetadata = await buildRouteMetadata()!
 			}
 		}
-		self.session?.end()
-
-		// Stops receiving location updates.
-		WMDelegate.stopUpdatingLocation()
-
-		// Resets workout-related variables to their initial states.
-		distanceTracker.cleanVars = true
+		self.session?.end() // Stops receiving location updates.
+		WMDelegate.stopUpdatingLocation() // Resets workout-related variables to their initial states.
+		distanceTracker.cleanVars = true // bleach/init the properties
 	}
-
-	//	PREVIOUS endWorkoutBuilder prior to async buildRouteBuilderMeta() - 3/9/24
-	//	func endWorkoutbuilder() {
-	//		// Print statement is commented out; can be enabled for debugging.
-	//		// print("endWorkoutbuilder called")
-	//		self.session?.end() // Ends the current HealthKit workout session.
-	//		distanceTracker.cleanVars = true // Resets workout-related variables to their initial states.
-	//	}
+// MARK: -> locationManager helpers
 
 	/// ``locationManager(_:didUpdateLocations:)``
-	/// Called when new locations are available from the `CLLocationManager`. It processes the received locations to update the workout session's data, including the route being taken, altitude, and direction.
+	/// Called when new locations are available from the `CLLocationManager`. It processes the received locations to update the workout session's data, 
+	/// including the route being taken, altitude, and direction.
 	/// - Parameters:
 	///   - manager: The `CLLocationManager` instance that generated the update event.
 	///   - workoutLocations: An array of `CLLocation` objects representing the updated locations.
 	///
-	/// This method ensures that location updates are only processed if the workout session is running. It checks for the accuracy of the location data, setting the initial location for the workout if it meets the accuracy requirements. The method continues to collect and process location data, updating various workout metrics such as altitude and course direction. It also adds the collected location data to a route builder for visualization and analysis.
-	func locationManager(_ manager: CLLocationManager, didUpdateLocations workoutLocations: [CLLocation]) {
-		guard let _ = workoutLocations.last else {
+	/// This method ensures that location updates are only processed if the workout session is running. It checks for the accuracy of the location data, 
+	/// setting the initial location for the workout if it meets the accuracy requirements. The method continues to collect and process location data,
+	/// updating various workout metrics such as altitude and course direction. It also adds the collected location data to a route builder for visualization and analysis.
+	func locationManager(_ manager: CLLocationManager, didUpdateLocations thisGPSLocation: [CLLocation]) {
+		guard let currentLocation = thisGPSLocation.last else {
 			distanceTracker.isInitialLocationObtained = false
 			return
 		}
-
-		if workoutSessionState == .notStarted { return }
-
-		let minimumAccuracy: CLLocationAccuracy = 50.0 // Defines the acceptable location accuracy in meters.
-
-		if workoutSessionState == .running && initialLocation == nil {
-			if let accurateLocation = workoutLocations.first(where: { $0.horizontalAccuracy <= minimumAccuracy }) {
-				initialLocation = accurateLocation
-				distanceTracker.isInitialLocationObtained = true
-				distanceTracker.ShowEstablishGPSScreen = false
+		if workoutSessionState == .notStarted { return } // Checks if the workout session state is not started and returns early to prevent further execution.
+		if workoutSessionState == .running && initialLocation == nil { // Processes the location updates only if the workout session is running and the initial location has not yet been set.
+			// Look for the first location update that meets the minimum accuracy requirement to set as the initial location.
+			if let accurateLocation = thisGPSLocation.first(where: { $0.horizontalAccuracy <= minimumAccuracy }) {
+				initialLocation = accurateLocation // Sets the found accurate location as the initial location for the workout.
+				distanceTracker.isInitialLocationObtained = true // Marks that a reliable initial location has been obtained.
+				distanceTracker.ShowEstablishGPSScreen = false // Hides any UI element indicating the GPS is still establishing.
 			} else {
+				// If no location update meets the accuracy requirement, marks the initial location as not obtained.
 				distanceTracker.isInitialLocationObtained = false
-				distanceTracker.ShowEstablishGPSScreen = true // Might need correction to accurately reflect intent.
-				print("Location accuracy is insufficient - accuracy: \(workoutLocations.first?.horizontalAccuracy ?? 0)")
+				distanceTracker.ShowEstablishGPSScreen = true // Shows or updates the UI to indicate GPS accuracy is insufficient.
+				print("Location accuracy is insufficient - accuracy: \(thisGPSLocation.first?.horizontalAccuracy ?? 0)")
+// TODO: - should this return be there or not? If it breaks, remove it: 3/11/24
+				return // don't process any further and wait for additional stronger signal updates
 			}
 		}
 
-		var collectedLocationsFromDevice: [CLLocation] = []
-		workoutLocations.forEach { collectedLocation in
-			isLocateMgr = false
-			course = collectedLocation.course
-			heading = CardinalDirection(course: collectedLocation.course).rawValue
-			workoutAltitude = collectedLocation.altitude
-
+/// 	Initializes an array to hold location data to process added to the route builder.
+/// 	This is the logic that collects & builds the location data from the current workout. It collects CLLocations/waypoints
+///		and adds them to the `collectedLocationsFromDevice` [collection] and eventually gets added to the routeBuilder when ending workout.
+		isLocateMgr = false // Resets the flag indicating whether the location manager is actively being used.
+		thisGPSLocation.forEach { collectedLocation in // Iterates over all received location updates to process and collect them.
+			course = collectedLocation.course // Updates the current course direction based on the location update.
+			heading = CardinalDirection(course: collectedLocation.course).rawValue // Converts the course direction to a readable format.
+			workoutAltitude = collectedLocation.altitude // Updates the current workout altitude with the new location's altitude.
+			// Adds the processed location to the collection of locations to be added to the route builder.
 			collectedLocationsFromDevice.append(
 				CLLocation(
 					coordinate: collectedLocation.coordinate,
@@ -246,23 +241,39 @@ class WorkoutManager: NSObject, CLLocationManagerDelegate {
 			)
 		}
 
+		// Calculates the total altitude from all collected locations to determine the average altitude for the workout.
 		let totalAltitude = collectedLocationsFromDevice.reduce(0) { $0 + $1.altitude }
 		let numberOfLocations = Double(collectedLocationsFromDevice.count)
+		// Sets the workout's altitude to the average altitude across all collected locations, if any locations were collected.
 		workoutAltitude = numberOfLocations > 0 ? totalAltitude / numberOfLocations : 0
 
+		// Attempts to add the collected locations to the route builder for inclusion in the workout route.
 		routeBuilder?.insertRouteData(collectedLocationsFromDevice) { [weak self] success, error in
 			guard let self = self else { return }
 			if let error = error {
+				// Logs any errors encountered while attempting to add location data to the route builder.
 				print("Error adding location to the route builder: \(error.localizedDescription)")
 			} else {
+				// Updates the UI or logs on success to indicate that the location has been successfully added to the builder.
 				DispatchQueue.main.async {
 					self.distanceTracker.builderDebugStr = "Location successfully added to builder: \(success)"
-					self.isLocateMgr = false
+					self.isLocateMgr = false // Resets the state indicating active location management.
 				}
 			}
 		}
 	}
 
+	/// ``locationManager(_:didUpdateHeading:)``
+	/// Captures updates to the device's heading, updating the route heading and the UI state for displaying the compass.
+	/// - Parameters:
+	///   - manager: The `CLLocationManager` instance reporting the event.
+	///   - newHeading: The new heading data.
+	///
+	/// This method sets a flag indicating that the compass view should update its background state to reflect the current heading and updates the `routeHeading` with the true heading value from `newHeading`.
+	func locationManager(_ manager: CLLocationManager, didUpdateHeading thisNewHeading: CLHeading) {
+		isLocateMgr = true // Indicates an update to the heading, affecting the CompassView appearance.
+		routeHeading = thisNewHeading.trueHeading // Stores the true heading for directional calculations.
+	}
 
 	/// ``locationManager(_:didChangeAuthorization:)``
 	/// Responds to changes in the location services authorization status. It requests authorization if the current status is not determined or explicitly denied.
@@ -280,18 +291,6 @@ class WorkoutManager: NSObject, CLLocationManagerDelegate {
 			@unknown default:
 				fatalError("Unhandled authorization status")
 		}
-	}
-
-	/// ``locationManager(_:didUpdateHeading:)``
-	/// Captures updates to the device's heading, updating the route heading and the UI state for displaying the compass.
-	/// - Parameters:
-	///   - manager: The `CLLocationManager` instance reporting the event.
-	///   - newHeading: The new heading data.
-	///
-	/// This method sets a flag indicating that the compass view should update its background state to reflect the current heading and updates the `routeHeading` with the true heading value from `newHeading`.
-	func locationManager(_ manager: CLLocationManager, didUpdateHeading newHeading: CLHeading) {
-		isLocateMgr = true // Indicates an update to the heading, affecting the CompassView appearance.
-		routeHeading = newHeading.trueHeading // Stores the true heading for directional calculations.
 	}
 
 	/// ``locationManager(_:didFailWithError:)``
@@ -375,41 +374,56 @@ extension WorkoutManager: HKWorkoutSessionDelegate {
 		}
 // MARK: -- End the workout and write data
 		if toState == .ended {
-			// End data collection and finalize the workout and route when the workout session ends.
+			// End data collection and finalize the workout and route.
+			// build the metadata for this workout
+			Task {
+				do {
+					thisMetadata = await buildRouteMetadata()!
+					print("[ 2 - didChangeTo - from] Final metadata: \(String(describing: thisMetadata))\n=======================\n")
+					print("Route successfully added to workout with metadata.")
+				}
+			}
 
 			builder?.endCollection(withEnd: Date(), completion: { [self] success, error in
 				if let error = error {
 					print("Error ending the collection: \(error.localizedDescription)")
 				} else {
-					print("Collection ended successfully - \(success.description)")
-					DispatchQueue.main.async { [self] in
-						distanceTracker.builderDebugStr += "Collection ended - \(success.description)\n"
-					}
+					print("[2a - didChangeTo] Collection ended successfully - \(success.description)")
+				   print("[didChange2] Getting ready to write metadata: \(thisMetadata)")
+
 					// Finalize the workout and attach any collected route data.
 					builder?.finishWorkout(completion: { [self] workout, error in
-						DispatchQueue.main.async {
+					   print("wrote completed builder 1: \(String(describing: workout))")
+						DispatchQueue.main.async { [self] in
 							self.workout = workout
-							guard let workout = workout else {
+							guard let thisWorkout = workout else {
 								print("Workout is nil, cannot finish the route")
 								return
 							}
 							// Finish the route with the completed workout and handle errors.
-							self.routeBuilder?.finishRoute(with: workout, metadata: nil, completion: { [self] (route, error) in
+//						   print("[didChange] Getting ready to write metadata: \(thisMetadata)")
+
+						   print("metadata for builder 2:\n\(thisMetadata)\n")
+							self.routeBuilder?.finishRoute(with: thisWorkout,
+														   metadata: thisMetadata,
+														   completion: { (completedRoute, error) in
+							   print("wrote completed builder 2:\n\(String(describing: completedRoute))")
+
 								if let error = error {
 									print("Error finishing route: \(error.localizedDescription)")
-								} else if let route = route {
-									// Successfully add the route to the workout in HealthKit.
-									self.healthStore.add([route], to: workout) { [self] (success, error) in
-										if let error = error {
-											print("Error adding route to workout: \(error.localizedDescription)")
-										} else {
-											print("Route successfully added to workout")
-											DispatchQueue.main.async { [self] in
-												distanceTracker.builderDebugStr += "Route successfully added to workout\n"
-											}
-										}
-									}
 								}
+// MARK: - big bulk comment may need to be removed... 3/11/24
+//							   else if let route = completedRoute {
+	// Successfully add the route to the workout in HealthKit.
+//									print("\n.add is actually running inside didChangeDo-from\n\n")
+//									self.healthStore.add([route], to: thisWorkout) { [self] (success, error) in
+//										if let error = error {
+//											print("Error adding route to workout: \(error.localizedDescription)")
+//										} else {
+//											print("[didChangeTo - from - 2] healhStore.add(route) - Route successfully added to workout")
+//										}
+//									}
+//								}
 							})
 						}
 					})
@@ -428,10 +442,10 @@ extension WorkoutManager: HKWorkoutSessionDelegate {
 	/// - Returns: An optional `String` containing the name of the city at the specified coordinates, or `nil` if the city cannot be determined.
 	///
 	/// This function leverages the `geoCodeHelper.getCityNameFromCoordinates` method, which performs geocoding to find the city name based on latitude and longitude. The asynchronous nature of this function is achieved through the use of a continuation within an `await withCheckedContinuation` block, allowing for seamless integration into async/await patterns in Swift.
-	func getCityNameFromCoordinatesAsync(latitude: CLLocationDegrees, longitude: CLLocationDegrees) async -> String? {
+	func getCityNameFromCoordinatesAsync(latitude: CLLocationDegrees, longitude: CLLocationDegrees) async -> CLPlacemark? {
 		await withCheckedContinuation { continuation in
-			geoCodeHelper.getCityNameFromCoordinates(latitude, longitude) { cityName in
-				continuation.resume(returning: cityName)
+			geoCodeHelper.getCityNameFromCoordinates(latitude, longitude) { placeMarks in
+				continuation.resume(returning: placeMarks)
 			}
 		}
 	}
@@ -484,13 +498,25 @@ extension WorkoutManager: HKLiveWorkoutBuilderDelegate {
 			print("Error with workout builder: \(error.localizedDescription)")
 			return
 		}
+		Task {
+			do {
+				thisMetadata = [:] // bleach it
+				thisMetadata = await buildRouteMetadata()!
+				print("[ 3 - didChangeTo - from] Final metadata: \(String(describing: thisMetadata))\n=======================\n")
+				print("Route successfully added to workout with metadata.")
+			}
+		}
 
 		// Attempts to finish routing the workout, processing and logging success or any errors encountered.
-		routeBuilder?.finishRoute(with: workout, metadata: nil) { (route, error) in
+
+	   print("[didFinishWith] Getting ready to write metadata: \(thisMetadata)")
+
+
+		routeBuilder?.finishRoute(with: workout, metadata: thisMetadata) { (route, error) in
 			if let error = error {
 				print("Error finishing route: \(error.localizedDescription)")
 			} else {
-				print("Route successfully added to workout")
+				print("[didFinishWith] Route successfully added to workout")
 				// If the workout session is still active, proceeds to end the collection of data.
 				if self.session?.state == .running {
 					workoutBuilder.endCollection(withEnd: workout.endDate) { (success, error) in
@@ -569,82 +595,62 @@ extension WorkoutManager: HKLiveWorkoutBuilderDelegate {
 		}
 	}
 
-
-	/// NOT UTILIZED?
-	/// ``finalizeWorkoutRoute()``
-	/// Asynchronously finalizes the workout route with metadata obtained from `buildRouteBuilderMeta`.
-	/// Utilizes an asynchronous pattern to ensure that metadata is fetched and applied to the workout route before finalizing. This function encapsulates the entire process of finalizing a workout route with enriched metadata, handling any potential errors that may arise during the process.
-//	func finalizeWorkoutRoutes() async {
-//		do {
-//			// Await the metadata dictionary from `buildRouteBuilderMeta`, which includes weather and location.
-//			print("Building the MetaData")
-//			let metadata = await buildRouteBuilderMeta()
-//			print("Fetched metadata: \(String(describing: metadata))")
-//			// Ensure that a valid workout instance is available before attempting to finalize the route.
-//			guard let workout = workout else {
-//				print("Workout is nil, cannot finish the route")
-//				return
-//			}
-//
-//			// Attempt to finalize the route asynchronously with the fetched metadata.
-//			let route = try await routeBuilder?.finishRouteAsync(with: workout, metadata: metadata)
-//			// Log the successful addition of the route to the workout, including metadata details.
-//			print("Route successfully added to workout with metadata: \(String(describing: route))")
-//		} catch {
-//			// Handle any errors encountered during the route finalization process and log them.
-//			print("Failed to finalize workout route: \(error)")
-//		}
-//	}
-
-	// build the metadata with address and weather info for the routebuilder
-	// Added: 3/7/24
+	// build the metadata with address and weather info for the routeBuilder Added: 3/7/24
 	/// ``buildRouteBuilderMeta()``
 	/// Asynchronously constructs a metadata dictionary for the workout route with weather and location information.
 	/// - Returns: A dictionary of type `[String: Any]` containing metadata such as temperature, weather condition symbols, and location details.
 	///
 	/// This method checks if weather data and city name need to be fetched. If the temperature variable (`tempVar`) in `weatherKitManager` is empty, it triggers a weather data fetch for the current coordinates stored in `distanceTracker`. Similarly, if the address (`thisAddress`) is not set, it attempts to retrieve the city name
 	/// using reverse geocoding. It then compiles a metadata dictionary (`thisMetaData`) with the obtained weather and location information, ensuring that both `thisCity` and `thisAddress` are updated by their respective async calls before being added to the dictionary.
-	func buildRouteBuilderMeta() async -> [String: Any]? {
+	func buildRouteMetadata() async -> [String: Any]? {
 		var metadata: [String: Any] = [:]
 		var seekWeather = false
 		var seekAddr = false // utilized for debugging
-		// are there valid coordinates
+		print("HEY! weahterKitManagrer.highTempVar = \(weatherKitManager.highTempVar)")
+
+	   // are there valid coordinates
 		if let thisLatitude = initialLocation?.coordinate.latitude,
 		   let thisLongitude = initialLocation?.coordinate.longitude {
-			// check to see if we even need to fetch weather - may have already been done
-			if weatherKitManager.tempVar == "" {
+			// check to see if we even need to fetch weather - may have already been done during routeBuilder
+			if weatherKitManager.highTempVar == "" { // go get the weather
 				seekWeather = true
-				do {
-					// Attempt to fetch the weather data asynchronously.
-					try await weatherKitManager.getWeather(for: CLLocationCoordinate2D(latitude: thisLatitude, longitude: thisLongitude))
+				do { // Attempt to async fetch the weather data
+				   try await weatherKitManager.getWeather(for: CLLocationCoordinate2D(latitude: thisLatitude, longitude: thisLongitude))
 				} catch {
-					// Handle any errors that are thrown.
-					print("Failed to fetch weather data: \(error.localizedDescription)")
-					// Implement any error handling logic
+				   print("Failed to fetch weather data: \(error.localizedDescription)")
 				}
 			}
 
-			// Add weather data to metadata dictionary
-			metadata["highTemp"] = weatherKitManager.highTempVar
-			metadata["lowTemp"] = weatherKitManager.lowTempVar
-			metadata["symbol"] = weatherKitManager.symbolVar
+		   // Add weather data to metadata dictionary
+		   metadata["symbol"] = weatherKitManager.symbolVar
+		   metadata["highTemp"] = weatherKitManager.highTempVar
+		   metadata["lowTemp"] = weatherKitManager.lowTempVar
+		   metadata["windSpeed"] = weatherKitManager.windSpeedVar
+		   metadata["windDirection"] = weatherKitManager.windDirectionVar
 
-			// check to see if we even need to fetch address - may have already been done
-			if self.thisAddress.isEmpty {
-				// go get the address async
-				seekAddr = true
-				let cityName = await getCityNameFromCoordinatesAsync(latitude: thisLatitude, longitude: thisLongitude)
+		   // determine if we even need to fetch - may have already been done
+		   if self.thisAddress.isEmpty {
+			  //			if self.thisAddress.isEmpty {
+			  // go get the address async
+			  seekAddr = true
+			  // build the address data from the placemark lookup
+			  let thisPlacemark = await getCityNameFromCoordinatesAsync(latitude: thisLatitude, longitude: thisLongitude)
 
-				// Use the city name directly if fetched successfully
-				metadata["city"] = cityName
-			} else {
-				// not found so put "" into metadata{"city"]
-				metadata["city"] = ""
-				print("Error or no city found for the given coordinates\nlat: \(String(describing: distanceTracker.latitude)) - long: \(String(describing: distanceTracker.longitude))")
-			}
+			  // Add address data to metadata dictionary
+			  metadata["city"] = thisPlacemark?.locality
+			  metadata["street"] = thisPlacemark?.thoroughfare
+			  metadata["name"] = thisPlacemark?.name
+		   } else {
+			  // not found - bleach
+			  metadata["city"] = ""
+			  metadata["street"] = ""
+			  metadata["name"] = ""
+		   }
 		} else {
-			// Use the existing city name if already available
-			metadata["city"] = thisCity
+		   // Use the existing address info if already available
+		   metadata["city"] = thisCity
+		   metadata["street"] = thisStreet
+			metadata["name"] = thisName
 		}
 
 		print("Address query was \(seekAddr ? "" : "not ") necessary.\n")

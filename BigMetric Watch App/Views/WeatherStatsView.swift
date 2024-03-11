@@ -88,9 +88,9 @@ struct WeatherStatsView: View {
 
 			Text(address)
 				.onAppear {
-					geoCodeHelper.getCityNameHelper(distanceTracker.currentCoords.latitude,
+					geoCodeHelper.getCityNameFromCoordinates(distanceTracker.currentCoords.latitude,
 															  distanceTracker.currentCoords.longitude) { result in
-						address = result
+						address = result?.locality ?? "loading"
 					}
 				}
 				.font(.footnote)

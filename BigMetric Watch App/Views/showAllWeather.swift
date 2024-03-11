@@ -70,11 +70,12 @@ var distanceTracker: DistanceTracker
 
             Text(address)
                .onAppear {
-                  geoCodeHelper.getCityNameHelper(distanceTracker.currentCoords.latitude,
+                  geoCodeHelper.getCityNameFromCoordinates(distanceTracker.currentCoords.latitude,
                                                   distanceTracker.currentCoords.longitude) { result in
-                     address = result
+					  address = result?.locality ?? "loading"
                   }
                }
+
                .font(.system(size: 12))
                .foregroundColor(.white)
          }
