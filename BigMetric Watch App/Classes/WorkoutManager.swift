@@ -327,7 +327,6 @@ extension WorkoutManager {
 	}
 
 	func resetWorkout() {
-		print("RESETTING WORKOUT ---- HERE")
 		selectedWorkout = nil
 		initialLocation = nil
 		builder = nil
@@ -353,86 +352,76 @@ extension WorkoutManager: HKWorkoutSessionDelegate {
 	///   - fromState: The previous state of the workout session.
 	///
 	/// Upon state change, this method logs the transition and performs necessary actions such as updating UI elements or stopping data collection based on the new state. If the session ends, it concludes data collection and finalizes the workout and route data.
-	func workoutSession(_ workoutSession: HKWorkoutSession, didChangeTo toState: HKWorkoutSessionState, from fromState: HKWorkoutSessionState, date: Date) {
-		// Log state transition for debugging.
-		print("Workout session state changed from \(fromState.rawValue) to \(toState.rawValue)")
-		print("Current view: \(type(of: self).description())\n")
-		let callingFunction = #function
-		print("Called from function: \(callingFunction)\n\n")
+   func workoutSession(_ workoutSession: HKWorkoutSession, didChangeTo toState: HKWorkoutSessionState, from fromState: HKWorkoutSessionState, date: Date) {
+	  // Log state transition for debugging.
+	  print("Workout session state changed from \(fromState.rawValue) to \(toState.rawValue)")
+//	  print("Current view: \(type(of: self).description())\n")
+	  let callingFunction = #function
+	  print("Called from function: \(callingFunction)\n")
 
-		// Log call stack to identify caller details in a debug scenario.
-		let stack = Thread.callStackSymbols
-		if stack.count > 1 {
-			print("Caller: \(stack[1]) - and \(stack[0]) \n\n")
-		}
+	  // Log call stack to identify caller details in a debug scenario.
+	  let stack = Thread.callStackSymbols
+	  if stack.count > 1 {
+		 print("Caller: \(stack[1]) - and \(stack[0]) \n")
+	  }
 
-		// Update tracking and UI based on the new state.
-		DispatchQueue.main.async { [self] in
-			distanceTracker.weIsRecording = toState == .running // Begin recording workout data if the session is running.
-			workoutSessionState = toState // Update internal state to reflect the new session state.
-			distanceTracker.builderDebugStr = "Builder: " + String(toState.rawValue) // Debug string update.
-		}
-// MARK: -- End the workout and write data
-		if toState == .ended {
-			// End data collection and finalize the workout and route.
-			// build the metadata for this workout
-			Task {
-				do {
-					thisMetadata = await buildRouteMetadata()!
-					print("[ 2 - didChangeTo - from] Final metadata: \(String(describing: thisMetadata))\n=======================\n")
-					print("Route successfully added to workout with metadata.")
-				}
-			}
+	  // Update tracking and UI based on the new state.
+	  DispatchQueue.main.async { [self] in
+		 distanceTracker.weIsRecording = toState == .running // Begin recording workout data if the session is running.
+		 workoutSessionState = toState // Update internal state to reflect the new session state.
+		 distanceTracker.builderDebugStr = "Builder: " + String(toState.rawValue) // Debug string update.
+	  }
+	  // MARK: -- End the workout and write data
+	  if toState == .ended {
+		 // Start of the updated code block
+		 Task {
+			do {
+			   // Ensure metadata is prepared before proceeding
+			   if let thisMetadata = await buildRouteMetadata() {
+//				  print("[ 2 - didChangeTo - from] Final metadata: \(String(describing: thisMetadata))\n=======================\n")
+//				  print("Route successfully added to workout with metadata.")
 
-			builder?.endCollection(withEnd: Date(), completion: { [self] success, error in
-				if let error = error {
-					print("Error ending the collection: \(error.localizedDescription)")
-				} else {
-					print("[2a - didChangeTo] Collection ended successfully - \(success.description)")
-				   print("[didChange2] Getting ready to write metadata: \(thisMetadata)")
+				  // Proceed with ending data collection and finalizing the workout now that metadata is ready
+				  builder?.endCollection(withEnd: Date(), completion: { [self] success, error in
+					 if let error = error {
+						print("Error ending the collection: \(error.localizedDescription)")
+					 } else {
+//						print("[2a - didChangeTo] Collection ended successfully: \(success.description)")
+//						print("[didChange2] Getting ready to write this discovered metadata:\n\(thisMetadata)")
 
-					// Finalize the workout and attach any collected route data.
-					builder?.finishWorkout(completion: { [self] workout, error in
-					   print("wrote completed builder 1: \(String(describing: workout))")
-						DispatchQueue.main.async { [self] in
-							self.workout = workout
-							guard let thisWorkout = workout else {
-								print("Workout is nil, cannot finish the route")
-								return
-							}
-							// Finish the route with the completed workout and handle errors.
-//						   print("[didChange] Getting ready to write metadata: \(thisMetadata)")
+						// Finalize the workout and attach any collected route data.
+						builder?.finishWorkout(completion: { [self] workout, error in
+						   DispatchQueue.main.async { [self] in
+							  self.workout = workout
+							  guard let thisWorkout = workout else {
+								 print("Workout is nil, cannot finish the route")
+								 return
+							  }
 
-						   print("metadata for builder 2:\n\(thisMetadata)\n")
-							self.routeBuilder?.finishRoute(with: thisWorkout,
-														   metadata: thisMetadata,
-														   completion: { (completedRoute, error) in
-							   print("wrote completed builder 2:\n\(String(describing: completedRoute))")
+							  // Finish the route with the completed workout and provided metadata
+							  self.routeBuilder?.finishRoute(with: thisWorkout, metadata: thisMetadata, completion: { (completedRoute, error) in
+								 print("HERE IS the actual route metadata at routeBuilder.finishRoute(with:, metadata:, completion:) - 2a:\n\(String(describing: completedRoute))")
 
-								if let error = error {
+								 if let error = error {
 									print("Error finishing route: \(error.localizedDescription)")
-								}
-// MARK: - big bulk comment may need to be removed... 3/11/24
-//							   else if let route = completedRoute {
-	// Successfully add the route to the workout in HealthKit.
-//									print("\n.add is actually running inside didChangeDo-from\n\n")
-//									self.healthStore.add([route], to: thisWorkout) { [self] (success, error) in
-//										if let error = error {
-//											print("Error adding route to workout: \(error.localizedDescription)")
-//										} else {
-//											print("[didChangeTo - from - 2] healhStore.add(route) - Route successfully added to workout")
-//										}
-//									}
-//								}
-							})
-						}
-					})
-				}
-			})
-			// Cease location updates as the workout session has ended.
-			WMDelegate.stopUpdatingLocation()
-		}
-	}
+								 }
+							  })
+						   }
+						})
+					 }
+				  })
+
+				  // Cease location updates as the workout session has ended.
+				  WMDelegate.stopUpdatingLocation()
+
+			   } else {
+				  print("Failed to build route metadata.")
+			   }
+			}
+		 }
+		 // End of the updated code block
+	  }
+   }
 
 	/// ``getCityNameFromCoordinatesAsync(latitude:longitude:)``
 	/// Asynchronously retrieves the city name for the specified geographic coordinates.
@@ -500,17 +489,13 @@ extension WorkoutManager: HKLiveWorkoutBuilderDelegate {
 		}
 		Task {
 			do {
-				thisMetadata = [:] // bleach it
-				thisMetadata = await buildRouteMetadata()!
-				print("[ 3 - didChangeTo - from] Final metadata: \(String(describing: thisMetadata))\n=======================\n")
-				print("Route successfully added to workout with metadata.")
+//				thisMetadata = [:] // bleach it
+				thisMetadata = await buildRouteMetadata()! // go build the metadata async and wait till it's finished
+				print("[ 3 - didChangeTo - from] Final metadata successfully written:\n\(String(describing: thisMetadata))\n=======================\n")
 			}
 		}
-
-		// Attempts to finish routing the workout, processing and logging success or any errors encountered.
-
 	   print("[didFinishWith] Getting ready to write metadata: \(thisMetadata)")
-
+		// Attempts to finish routing the workout, processing and logging success or any errors encountered.
 
 		routeBuilder?.finishRoute(with: workout, metadata: thisMetadata) { (route, error) in
 			if let error = error {
@@ -521,7 +506,10 @@ extension WorkoutManager: HKLiveWorkoutBuilderDelegate {
 				if self.session?.state == .running {
 					workoutBuilder.endCollection(withEnd: workout.endDate) { (success, error) in
 						if success {
+						   // i added next line to try and quell the warnings... take this out if issues 3/14/24
+						   self.session = nil
 							print("Collection ended successfully")
+						   
 						} else if let error = error {
 							print("Error ending the collection: \(error.localizedDescription)")
 						}
