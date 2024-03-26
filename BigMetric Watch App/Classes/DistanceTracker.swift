@@ -81,9 +81,16 @@ class DistanceTracker: NSObject, CLLocationManagerDelegate {
 			}
 		}
 	}
-	var distance: Double = 0 { // Total distance covered, with didSet for debugging.
+	var distance: Double = 0 { 
 		didSet {
-			// Debugging action for distance updates.
+		   // the hapticMile logic - play haptic if new mile complete and self.isBeep
+		   let currentMile = Int(distance)
+		   if currentMile > lastHapticMile {
+			  lastHapticMile = currentMile // update the currentMile integer value for next mile
+			  if self.isBeep {
+				 PlayHaptic.tap(PlayHaptic.up)
+			  }
+		   }
 		}
 	}
 	var isPrecise = true { // Controls the GPS precision for location updates.
@@ -294,6 +301,10 @@ class DistanceTracker: NSObject, CLLocationManagerDelegate {
 			distance = !YMCalc ? locationsArray.calcFromLastLocation / metersToYards : locationsArray.calculatedDistance / metersToMiles
 			lastDist = distance // Update the last distance with the current calculation.
 			lastLocation = filteredLocations.last // Update the last known location with the most recent valid location.
+
+#if os(watchOS)
+
+#endif
 		}
 	}
 

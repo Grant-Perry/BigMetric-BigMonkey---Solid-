@@ -4,14 +4,14 @@
 //
 //  Created by: Grant Perry on 5/25/23.
 
-//			Modified: Wednesday February 28, 2024 at 9:01:26 AM
+//  Modified: Monday March 25, 2024 at 6:53:22 PM
 
 
 import SwiftUI
 
 let APP_NAME 		= "BigMetric"
-let APP_VERSION 	= "3.4q RhiNO-M0nkEY-FarT"
-let MOD_DATE 		= "Modified: 3/14/24 | 10:07AM"
+let APP_VERSION 	= "4.0a RhiNO-M0nkEY-FarT"
+let MOD_DATE 		= "Modified: 3/25/24 | 6:45PM"
 
 @main
 struct BigMetric_Watch_AppApp: App {
